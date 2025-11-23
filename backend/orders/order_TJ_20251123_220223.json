@@ -1,0 +1,11 @@
+{
+  "orderId": "TJ_20251123_220223",
+  "timestamp": "2025-11-23T22:02:23.219001",
+  "customerName": "Jameela",
+  "drinkType": "Mocha",
+  "size": "Medium",
+  "milk": "Almond",
+  "extras": [],
+  "status": "ordered",
+  "location": "T&J Coffee Co."
+}
