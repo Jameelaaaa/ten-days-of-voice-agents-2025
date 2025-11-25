@@ -1,7 +1,10 @@
 import logging
+import json
+from pathlib import Path
+from datetime import datetime
 
 from dotenv import load_dotenv
-from livekit.agents import (
+from livekit.agents import (  # type: ignore
     Agent,
     AgentSession,
     JobContext,
@@ -12,42 +15,182 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext,
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import murf, silero, google, deepgram, noise_cancellation  # type: ignore
+from livekit.plugins.turn_detector.multilingual import MultilingualModel  # type: ignore
 
-logger = logging.getLogger("agent")
-
+logger = logging.getLogger("day4_tutor")
 load_dotenv(".env.local")
 
+# Paths and content
+DATA_DIR = Path(__file__).parent.parent / "shared-data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-class Assistant(Agent):
+CONTENT_PATH = DATA_DIR / "day4_tutor_content.json"
+
+DEFAULT_CONTENT = [
+    {
+        "id": "variables",
+        "title": "Variables",
+        "summary": "Variables store values so you can reuse and change them later in a program.",
+        "sample_question": "What is a variable and why is it useful?"
+    },
+    {
+        "id": "loops",
+        "title": "Loops",
+        "summary": "Loops let you repeat an action multiple times, which helps avoid writing repeated code.",
+        "sample_question": "Explain the difference between a for loop and a while loop."
+    }
+]
+
+if not CONTENT_PATH.exists():
+    with open(CONTENT_PATH, "w", encoding="utf-8") as f:
+        json.dump(DEFAULT_CONTENT, f, indent=2, ensure_ascii=False)
+
+
+# Tutor Agent
+class TutorAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=(
+                "You are a friendly, patient tutor. Greet the user, ask which mode they want (learn, quiz, teach_back), "
+                "and when asked to teach, generate a long, natural explanation in your own words using very simple language. "
+                "Do not repeat any stored summary verbatim; instead, compose a fresh explanation with at least three sentences and one short example. "
+                "Be encouraging and teacher-like. Keep messages plain text (no asterisks or decorations)."
+            )
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+        # Load content
+        with open(CONTENT_PATH, "r", encoding="utf-8") as f:
+            self.content = json.load(f)
+
+        # State
+        self.mode = None
+        self.current = self.content[0] if self.content else None
+        self._session = None  # Will be set after session starts
+        self._tts_instances = {}  # Will hold pre-created TTS instances
+
+        # Voice mapping for modes (Murf Falcon voice names)
+        # learn -> Matthew, quiz -> Alicia, teach_back -> Ken
+        self.voice_for_mode = {
+            "learn": "en-US-matthew",
+            "quiz": "en-US-alicia",
+            "teach_back": "en-US-ken"
+        }
+
+    def _get_concept(self, concept_id: str = None):
+        if concept_id:
+            for c in self.content:
+                if c["id"] == concept_id:
+                    return c
+        return self.current
+
+    
+    @function_tool
+    async def list_concepts(self, context: RunContext):
+        """Return available concepts (id: title)."""
+        return "\n".join([f"{c['id']}: {c['title']}" for c in self.content])
+
+    @function_tool
+    async def set_mode(self, context: RunContext, mode: str = None, concept_id: str = None):
+        """
+        Set learning mode and optionally choose a concept.
+        It switches the TTS voice to match the mode.
+        """
+        if mode and mode not in ("learn", "quiz", "teach_back"):
+            return "Mode must be one of: learn, quiz, teach_back."
+
+        if mode:
+            self.mode = mode
+            
+            # Switch the TTS voice for this mode
+            new_voice = self.voice_for_mode.get(self.mode, "en-US-matthew")
+            
+            if self._session and self._tts_instances:
+                try:
+                    # Switch to the TTS instance for this mode
+                    self._session._tts = self._tts_instances[self.mode]
+                    logger.info(f"Switched TTS voice to {new_voice} for mode {self.mode}")
+                except Exception as e:
+                    logger.error(f"Failed to switch TTS voice: {e}")
+        
+        if concept_id:
+            c = self._get_concept(concept_id)
+            if not c:
+                return "Concept not found. Use list_concepts() to see valid ids."
+            self.current = c
+
+        return f"Mode set to {self.mode}. Concept: {self.current['title']}. Voice changed to {self.voice_for_mode.get(self.mode)}."
+
+    @function_tool
+    async def explain_concept(self, context: RunContext):
+        """
+        Just give a small hint, and let the AI explain everything in a simple way.
+        """
+        if not self.current:
+            return "No concept selected."
+
+        title = self.current.get("title", "Concept")
+        seed = self.current.get("summary", "")
+        instruction = (
+            f"Explain '{title}' in very simple, everyday English. "
+            "Do not repeat exact stored summary. Use at least three short sentences and include one tiny example. "
+            "Keep tone supportive and teacher-like."
+        )
+        return {"seed": seed, "instruction": instruction}
+
+    @function_tool
+    async def ask_quiz_question(self, context: RunContext):
+        """Return a short quiz prompt for the LLM to ask in teacher style."""
+        if not self.current:
+            return "No concept selected."
+        return self.current.get("sample_question", "Can you explain this concept in your own words?")
+
+    @function_tool
+    async def assess_teach_back(self, context: RunContext, user_response: str = ""):
+        """
+        This is a small tool that listens to the user explain something back, checks for important words, and then gives helpful teacher-like feedback. It does not store the score anywhere.
+        """
+        if not self.current:
+            return "No concept selected."
+
+        ref_words = set((self.current.get("summary") or "").lower().split())
+        resp_words = set((user_response or "").lower().split())
+        overlap = len(ref_words & resp_words)
+        total = max(1, len(ref_words))
+        score = int((overlap / total) * 100)
+
+        # feedback
+        if score >= 80:
+            feedback = (
+                "Excellent explanation. You covered the main ideas clearly and used your own words. "
+                "For improvement, add a tiny code or real-life example next time."
+            )
+        elif score >= 50:
+            feedback = (
+                "Good explanation. You included important points but missed a couple of details. "
+                "Try: definition, why it matters, one short example."
+            )
+        elif score >= 25:
+            feedback = (
+                "Nice effort. You captured some parts. Focus on the main idea and give a short example."
+            )
+        else:
+            feedback = (
+                "Good start. You're learning — keep practising. Try: one-sentence definition, why we use it, then an example."
+            )
+
+        sample_answer = ""
+        cid = self.current["id"]
+        if cid == "variables":
+            sample_answer = "Sample: A variable is a named place to store a value, like age = 20. We use it to save and reuse data."
+        elif cid == "loops":
+            sample_answer = "Sample: A loop repeats actions, for example printing each item in a list. Use it to avoid repeating code."
+
+        next_step = "Would you like to try again, or shall I give a short quiz?"
+        return f"Score: {score}% — {feedback} {sample_answer} {next_step}"
 
 
 def prewarm(proc: JobProcess):
@@ -55,51 +198,46 @@ def prewarm(proc: JobProcess):
 
 
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
+    ctx.log_context_fields = {"room": ctx.room.name}
+
+    # Create the agent first
+    agent = TutorAgent()
+
+    # Create TTS instances for each mode with different voices
+    agent._tts_instances = {
+        "learn": murf.TTS(
+            voice="en-US-matthew",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
+        "quiz": murf.TTS(
+            voice="en-US-alicia",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
+        "teach_back": murf.TTS(
+            voice="en-US-ken",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
     }
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
+    # Start with "learn" mode TTS (Matthew voice)
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+        llm=google.LLM(model="gemini-2.5-flash"),
+        tts=agent._tts_instances["learn"],  # Default to learn mode
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
+    # Give agent access to the session so it can switch TTS
+    agent._session = session
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -108,30 +246,16 @@ async def entrypoint(ctx: JobContext):
         usage_collector.collect(ev.metrics)
 
     async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
+        logger.info(f"Usage: {usage_collector.get_summary()}")
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=agent,
         room=ctx.room,
-        room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
+        room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 
