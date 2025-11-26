@@ -1,0 +1,93 @@
+{
+  "company": {
+    "name": "Nykaa",
+    "tagline": "Your beauty and lifestyle destination",
+    "description": "Nykaa is an Indian omnichannel beauty, personal care, and lifestyle retailer offering products from domestic and international brands through its website, apps, and physical stores.",
+    "founded": "2012",
+    "headquarters": "Mumbai, India",
+    "website": "https://www.nykaa.com"
+  },
+  "products": {
+    "beauty_ecommerce": {
+      "name": "Nykaa Beauty",
+      "description": "Online marketplace for beauty, personal care, and grooming products across categories and brands.",
+      "key_features": [
+        "Wide assortment of beauty and personal care brands",
+        "Curated collections and expert recommendations",
+        "Apps and website for shopping across India",
+        "Customer reviews and ratings",
+        "Offers, promotions, and loyalty rewards"
+      ]
+    },
+    "fashion_ecommerce": {
+      "name": "Nykaa Fashion",
+      "description": "Fashion and lifestyle platform offering apparel, accessories, and footwear across categories.",
+      "key_features": [
+        "Multi-brand fashion marketplace",
+        "Ethnic, western, and occasion wear collections",
+        "Designer and premium labels",
+        "Curated edits and influencer-led collections",
+        "App and web shopping experience"
+      ]
+    },
+    "own_brands": {
+      "name": "Nykaa Private Labels",
+      "description": "In-house brands across beauty, personal care, and lifestyle categories.",
+      "key_features": [
+        "Makeup, skincare, and personal care brands developed by Nykaa",
+        "Price points covering mass to premium segments",
+        "Exclusive availability primarily through Nykaa channels",
+        "Regular launches and category extensions"
+      ]
+    },
+    "offline_retail": {
+      "name": "Nykaa Stores",
+      "description": "Omnichannel presence through physical stores in multiple formats.",
+      "key_features": [
+        "Nykaa On Trend and Nykaa Luxe store formats",
+        "Assisted shopping with beauty advisors",
+        "Omnichannel experiences like click-and-collect (where available)",
+        "Presence in key cities and malls"
+      ]
+    }
+  },
+  "target_customers": [
+    "Beauty and personal care shoppers",
+    "Fashion and lifestyle shoppers",
+    "Urban and semi-urban consumers",
+    "Online-first Gen Z and millennials",
+    "Value and premium segment customers"
+  ],
+  "pricing": {
+    "beauty_ecommerce": "Product pricing varies by brand, category, and assortment, with discounts and offers running periodically.",
+    "fashion_ecommerce": "Apparel and accessories follow brand- and category-based pricing with seasonal promotions.",
+    "own_brands": "In-house brands are positioned across value, mid, and premium price bands depending on category.",
+    "offline_retail": "Store pricing matches online pricing, with store-specific offers or experiences in some locations."
+  },
+  "faq": [
+    {
+      "question": "What does Nykaa do?",
+      "answer": "Nykaa is an Indian beauty, personal care, and lifestyle company that operates an online marketplace and physical stores. It offers products from multiple brands as well as its own labels across beauty, personal care, fashion, and lifestyle categories."
+    },
+    {
+      "question": "Is Nykaa an online or offline platform?",
+      "answer": "Nykaa follows an omnichannel model, selling through its website, mobile apps, and a network of physical stores in multiple cities."
+    },
+    {
+      "question": "Does Nykaa have its own brands?",
+      "answer": "Yes, Nykaa has several in-house brands across makeup, skincare, personal care, and other categories, sold primarily through its own online and offline channels."
+    },
+    {
+      "question": "Who is Nykaa for?",
+      "answer": "Nykaa caters to customers looking for beauty, personal care, and fashion products—from daily essentials to premium and luxury brands—across different age groups and price segments."
+    },
+    {
+      "question": "How does Nykaa price its products?",
+      "answer": "Product prices are set by Nykaa and brand partners, and vary by brand, category, and range. Customers often see regular promotions, festival offers, and loyalty benefits."
+    },
+    {
+      "question": "Does Nykaa offer COD and returns?",
+      "answer": "Nykaa typically offers cash-on-delivery and return or exchange options on eligible products and pin codes, subject to category- and policy-specific conditions published on its site."
+    }
+  ]
+}
