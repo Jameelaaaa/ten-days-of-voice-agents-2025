@@ -1,0 +1,68 @@
+{
+  "fraud_cases": [
+    {
+      "userName": "John",
+      "securityIdentifier": "12345",
+      "cardEnding": "4242",
+      "case": "confirmed_safe",
+      "transactionName": "ABC Industry",
+      "transactionTime": "2025-11-27T14:30:00Z",
+      "transactionAmount": "$2,499.99",
+      "transactionCategory": "e-commerce",
+      "transactionSource": "alibaba.com",
+      "securityQuestion": "What is the name of your first pet?",
+      "securityAnswer": "buddy",
+      "location": "Shanghai, China",
+      "lastUpdated": "2025-11-27T20:22:30.611959",
+      "outcomeNote": "Customer confirmed transaction as legitimate"
+    },
+    {
+      "userName": "Alice",
+      "securityIdentifier": "67890",
+      "cardEnding": "9876",
+      "case": "pending_review",
+      "transactionName": "Luxury Goods Ltd",
+      "transactionTime": "2025-11-26T22:15:00Z",
+      "transactionAmount": "$1,899.50",
+      "transactionCategory": "retail",
+      "transactionSource": "luxurystore.com",
+      "securityQuestion": "What is the name of your first pet?",
+      "securityAnswer": "whiskers",
+      "location": "Hong Kong",
+      "lastUpdated": "2025-11-27T16:22:46.427253",
+      "outcomeNote": null
+    },
+    {
+      "userName": "Bob",
+      "securityIdentifier": "54321",
+      "cardEnding": "1357",
+      "case": "confirmed_fraud",
+      "transactionName": "Gaming Paradise",
+      "transactionTime": "2025-11-27T01:45:00Z",
+      "transactionAmount": "$599.99",
+      "transactionCategory": "gaming",
+      "transactionSource": "gamingstore.net",
+      "securityQuestion": "What is the name of your first pet?",
+      "securityAnswer": "rocky",
+      "location": "Moscow, Russia",
+      "lastUpdated": "2025-11-27T18:48:10.289796",
+      "outcomeNote": "Customer denied making the transaction - fraudulent activity confirmed"
+    },
+    {
+      "userName": "Eve",
+      "securityIdentifier": "11223",
+      "cardEnding": "2468",
+      "case": "pending_review",
+      "transactionName": "Crypto Exchange",
+      "transactionTime": "2025-11-25T18:00:00Z",
+      "transactionAmount": "$5,000.00",
+      "transactionCategory": "cryptocurrency",
+      "transactionSource": "cryptoexchange.com",
+      "securityQuestion": "What is the name of your first pet?",
+      "securityAnswer": "fluffy",
+      "location": "New York, USA",
+      "lastUpdated": "2025-11-26T12:00:00Z",
+      "outcomeNote": "Under investigation for potential fraud"
+    }
+  ]
+}

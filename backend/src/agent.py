@@ -1,6 +1,6 @@
 import logging
 import json
-# import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -29,70 +29,204 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+
+def init_fraud_database():
+    """Initialize the fraud cases database with the required schema."""
+    db_path = CONFIG["fraud_database"]
+    
+    # Create the directory if it doesn't exist
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Create the fraud_cases table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS fraud_cases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_name TEXT NOT NULL,
+            security_identifier TEXT,
+            card_ending TEXT,
+            case_status TEXT DEFAULT 'pending_review',
+            transaction_name TEXT,
+            transaction_time TEXT,
+            transaction_amount TEXT,
+            transaction_category TEXT,
+            transaction_source TEXT,
+            security_question TEXT,
+            security_answer TEXT,
+            location TEXT,
+            last_updated TEXT,
+            outcome_note TEXT
+        )
+    """)
+    
+    # Check if we have any data, if not, load from JSON file
+    cursor.execute("SELECT COUNT(*) FROM fraud_cases")
+    if cursor.fetchone()[0] == 0:
+        # Load data from existing JSON file
+        json_file = Path(__file__).parent.parent / "shared-data" / "fraud_cases.json"
+        
+        try:
+            if json_file.exists():
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                
+                # Convert JSON data to database format
+                cases_to_insert = []
+                for case in json_data.get("fraud_cases", []):
+                    cases_to_insert.append((
+                        case.get("userName"),
+                        case.get("securityIdentifier"),
+                        case.get("cardEnding"),
+                        case.get("case", "pending_review"),
+                        case.get("transactionName"),
+                        case.get("transactionTime"),
+                        case.get("transactionAmount"),
+                        case.get("transactionCategory"),
+                        case.get("transactionSource"),
+                        case.get("securityQuestion"),
+                        case.get("securityAnswer"),
+                        case.get("location"),
+                        case.get("lastUpdated"),
+                        case.get("outcomeNote")
+                    ))
+                
+                if cases_to_insert:
+                    cursor.executemany("""
+                        INSERT INTO fraud_cases (
+                            user_name, security_identifier, card_ending, case_status,
+                            transaction_name, transaction_time, transaction_amount,
+                            transaction_category, transaction_source, security_question,
+                            security_answer, location, last_updated, outcome_note
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, cases_to_insert)
+                    
+                    logger.info(f"Initialized fraud database with {len(cases_to_insert)} cases from fraud_cases.json")
+                else:
+                    logger.warning("No fraud cases found in JSON file")
+            else:
+                logger.warning(f"JSON file not found: {json_file}, creating empty database")
+                
+        except Exception as e:
+            logger.error(f"Error loading data from JSON file: {e}")
+            logger.info("Database initialized but empty due to JSON loading error")
+    
+    conn.commit()
+    conn.close()
+
+
+def get_database_connection():
+    """Get a connection to the fraud database."""
+    return sqlite3.connect(CONFIG["fraud_database"], timeout=30.0)
+
+
+def log_fraud_cases():
+    """Log all fraud cases for debugging/viewing purposes."""
+    try:
+        conn = get_database_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT user_name, case_status, transaction_amount, transaction_name,
+                   location, last_updated, outcome_note
+            FROM fraud_cases
+            ORDER BY last_updated DESC
+        """)
+        
+        cases = cursor.fetchall()
+        conn.close()
+        
+        logger.info(f"=== FRAUD CASES DATABASE ({len(cases)} cases) ===")
+        for case in cases:
+            status_emoji = "🟡" if case[1] == "pending_review" else "🟢" if "safe" in case[1] else "🔴"
+            outcome_text = f" | Outcome: {case[6]}" if case[6] else ""
+            logger.info(f"{status_emoji} {case[0]}: {case[2]} at {case[3]} ({case[4]}) | Status: {case[1]}{outcome_text}")
+        logger.info("=" * 50)
+        
+    except Exception as e:
+        logger.error(f"Error logging fraud cases: {e}")
+
+
+def log_database_stats():
+    """Log database statistics."""
+    try:
+        conn = get_database_connection()
+        cursor = conn.cursor()
+        
+        # Get status counts
+        cursor.execute("""
+            SELECT case_status, COUNT(*) 
+            FROM fraud_cases 
+            GROUP BY case_status
+        """)
+        status_counts = cursor.fetchall()
+        
+        conn.close()
+        
+        logger.info("📊 DATABASE STATS:")
+        for status, count in status_counts:
+            emoji = "🟡" if status == "pending_review" else "🟢" if "safe" in status else "🔴"
+            logger.info(f"  {emoji} {status.replace('_', ' ').title()}: {count}")
+        
+    except Exception as e:
+        logger.error(f"Error logging database stats: {e}")
+
+
 # Configuration constants - can be moved to env vars or config file
 CONFIG = {
     "stt_model": "nova-3",
     "llm_model": "gemini-2.5-flash",
-    "voice": "en-US-matthew",  # Professional female voice for SDR
-    "company_data_file": Path(__file__).parent.parent / "shared-data" / "nykaa_company_data.json",
-    "leads_directory": Path(__file__).parent.parent / "leads"
+    "voice": "en-US-matthew",  # Professional voice for fraud alert
+    "fraud_database": Path(__file__).parent.parent / "shared-data" / "fraud_cases.db"
 }
 
 
 @dataclass
-class LeadData:
-    """Data structure for collecting lead information."""
-    name: Optional[str] = None
-    company: Optional[str] = None
-    email: Optional[str] = None
-    role: Optional[str] = None
-    use_case: Optional[str] = None
-    team_size: Optional[str] = None
-    timeline: Optional[str] = None
-    notes: Optional[str] = None
-    call_start_time: str = field(default_factory=lambda: datetime.now().isoformat())
+class FraudCase:
+    """Data structure for fraud case information."""
+    userName: Optional[str] = None
+    securityIdentifier: Optional[str] = None
+    cardEnding: Optional[str] = None
+    case: str = "pending_review"  # pending_review, confirmed_safe, confirmed_fraud, verification_failed
+    transactionName: Optional[str] = None
+    transactionTime: Optional[str] = None
+    transactionAmount: Optional[str] = None
+    transactionCategory: Optional[str] = None
+    transactionSource: Optional[str] = None
+    securityQuestion: Optional[str] = None
+    securityAnswer: Optional[str] = None
+    location: Optional[str] = None
+    lastUpdated: str = field(default_factory=lambda: datetime.now().isoformat())
+    outcomeNote: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert lead data to dictionary for JSON serialization."""
+        """Convert fraud case to dictionary for JSON serialization."""
         return {
-            'name': self.name,
-            'company': self.company,
-            'email': self.email,
-            'role': self.role,
-            'use_case': self.use_case,
-            'team_size': self.team_size,
-            'timeline': self.timeline,
-            'notes': self.notes,
-            'call_start_time': self.call_start_time,
-            'call_end_time': datetime.now().isoformat()
+            'userName': self.userName,
+            'securityIdentifier': self.securityIdentifier,
+            'cardEnding': self.cardEnding,
+            'case': self.case,
+            'transactionName': self.transactionName,
+            'transactionTime': self.transactionTime,
+            'transactionAmount': self.transactionAmount,
+            'transactionCategory': self.transactionCategory,
+            'transactionSource': self.transactionSource,
+            'securityQuestion': self.securityQuestion,
+            'securityAnswer': self.securityAnswer,
+            'location': self.location,
+            'lastUpdated': self.lastUpdated,
+            'outcomeNote': self.outcomeNote
         }
-    
-    def get_completion_status(self) -> Dict[str, bool]:
-        """Get which fields have been collected."""
-        return {
-            'name': self.name is not None,
-            'company': self.company is not None,
-            'email': self.email is not None,
-            'role': self.role is not None,
-            'use_case': self.use_case is not None,
-            'team_size': self.team_size is not None,
-            'timeline': self.timeline is not None
-        }
-    
-    def get_missing_fields(self) -> list[str]:
-        """Get list of missing required fields."""
-        status = self.get_completion_status()
-        return [field for field, completed in status.items() if not completed]
 
 
 @dataclass
-class SDRData:
-    """Shared data for the SDR session."""
-    company_info: Dict[str, Any] = field(default_factory=dict)
-    faq_data: list[Dict[str, str]] = field(default_factory=list)
-    lead_data: LeadData = field(default_factory=LeadData)
-    conversation_stage: str = "greeting"  # greeting, discovery, qualification, closing
-    call_summary: Optional[str] = None
+class FraudData:
+    """Shared data for the fraud alert session."""
+    current_fraud_case: Optional[FraudCase] = None
+    all_fraud_cases: list[Dict[str, Any]] = field(default_factory=list)
+    verification_status: str = "pending"  # pending, verified, failed
+    call_stage: str = "greeting"  # greeting, verification, transaction_review, case_update, closing
 
 
 class BaseAgent(Agent):
@@ -114,248 +248,273 @@ class BaseAgent(Agent):
         )
 
 
-class SDRAgent(BaseAgent):
-    """Sales Development Representative agent for lead qualification and company information."""
+class FraudAlertAgent(BaseAgent):
+    """Fraud alert agent for handling suspicious transaction verification."""
     
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
-        instructions = """You are Aura, a friendly and professional Sales Development Representative at Nykaa.
+        instructions = """You are Aura, a professional fraud detection representative from SecureBank's Fraud Prevention Department.
 
         Your role is to:
-        1. Warmly greet visitors and introduce yourself and Nykaa
-        2. Discover what brought them to Nykaa and what beauty/fashion business challenges they're facing
-        3. Answer questions about Nykaa's products, services, and partnership opportunities using the FAQ knowledge
-        4. Naturally collect lead qualification information during the conversation
-        5. Provide value and build rapport while understanding their brand and business needs
-        6. Create a summary when they're ready to end the call
+        1. Greet the customer and explain you're calling about a suspicious transaction
+        2. Verify the customer's identity using ONLY the security question stored in their fraud case
+        3. Read out the suspicious transaction details clearly
+        4. Ask if they made this transaction
+        5. Update the case status based on their response
+        6. Provide appropriate next steps
 
-        CRITICAL: When the user provides any of the following information, you MUST immediately call the collect_lead_info function:
-        - Name: call collect_lead_info(field="name", value=their_name)
-        - Company/Brand name: call collect_lead_info(field="company", value=company_name)
-        - Email: call collect_lead_info(field="email", value=email_address)
-        - Role/Position: call collect_lead_info(field="role", value=their_role)
-        - Use case/what they want: call collect_lead_info(field="use_case", value=their_needs)
-        - Team size/employees: call collect_lead_info(field="team_size", value=team_info)
-        - Timeline: call collect_lead_info(field="timeline", value=timeline_info)
+        CRITICAL SECURITY GUIDELINES:
+        - NEVER ask for full card numbers, PINs, passwords, or SSNs
+        - NEVER generate your own security questions - ALWAYS use the verify_customer function to ask the question from the database
+        - NEVER ask random or made-up security questions
+        - Only use the security question that is already stored in the customer's fraud case
+        - Keep verification simple and non-sensitive
+        - Be professional, calm, and reassuring
+        - Clearly identify yourself and your bank at the start
 
-        Lead Information to Collect (do this naturally during conversation):
-        - Name and company/brand
-        - Email address
-        - Role/position
-        - Use case (what they want - brand partnership, selling on Nykaa, marketing collaboration, etc.)
-        - Team/business size
-        - Timeline for partnership/collaboration
+        FUNCTION TOOL USAGE:
+        - After loading a fraud case with load_fraud_case, ALWAYS call ask_security_question() to ask the stored security question
+        - Do NOT generate or ask any security questions yourself
+        - Do NOT ask for mother's maiden name, favorite color, or any other questions not in the database
+        - The ask_security_question function will provide the exact question to ask
+        - After the customer answers, call verify_customer with their answer
 
-        Always be helpful, professional, and focused on understanding their beauty/fashion business needs. 
-        Use the FAQ data to answer questions accurately and avoid making up information not in the knowledge base.
-        
-        When someone says they're done or ready to end the call, provide a summary and save their information."""
+        CALL FLOW:
+        1. Introduce yourself: "Hello, this is Aurora from SecureBank's Fraud Prevention Department"
+        2. Ask for the customer's name to load their case using load_fraud_case
+        3. After loading the case, immediately call ask_security_question() to ask the stored security question
+        4. Wait for customer response, then call verify_customer with their answer
+        5. If verified, call read_transaction_details to show the transaction
+        6. Ask if they made the transaction and call update_fraud_case with their response
+        7. End the call professionally
+
+        Always maintain a helpful, professional tone and prioritize customer security."""
 
         super().__init__(instructions=instructions, chat_ctx=chat_ctx)
 
     @function_tool
-    async def search_faq(self, context: RunContext[SDRData], question: str) -> str:
-        """Search FAQ for relevant answers to user questions."""
-        question_lower = question.lower()
-        best_match = None
-        best_score = 0
-        
-        # Simple keyword matching for FAQ search
-        for faq_item in context.userdata.faq_data:
-            faq_question = faq_item['question'].lower()
-            faq_answer = faq_item['answer'].lower()
-            
-            # Count common words between user question and FAQ
-            question_words = set(question_lower.split())
-            faq_words = set(faq_question.split() + faq_answer.split())
-            common_words = question_words.intersection(faq_words)
-            
-            if len(common_words) > best_score:
-                best_score = len(common_words)
-                best_match = faq_item
-        
-        if best_match and best_score > 0:
-            return f"Based on our information: {best_match['answer']}"
-        else:
-            # Fallback to general company information
-            company_info = context.userdata.company_info
-            return f"I'd be happy to help with information about {company_info['company']['name']}. {company_info['company']['description']} Could you be more specific about what you'd like to know?"
-
-    @function_tool
-    async def collect_lead_info(self, context: RunContext[SDRData], field: str, value: str) -> str:
-        """Collect and store lead information."""
-        lead = context.userdata.lead_data
-        
-        if field == "name":
-            lead.name = value
-            return f"Great to meet you, {value}! "
-        elif field == "company":
-            lead.company = value
-            return f"Excellent! Tell me more about {value}. "
-        elif field == "email":
-            lead.email = value
-            return "Perfect! I'll make sure to follow up with you. "
-        elif field == "role":
-            lead.role = value
-            return f"Interesting! As a {value}, I can see how Razorpay's fintech solutions might fit into your work. "
-        elif field == "use_case":
-            lead.use_case = value
-            return "That's exactly the kind of business challenge Razorpay can help solve! "
-        elif field == "team_size":
-            lead.team_size = value
-            return "That context helps me understand your scale. "
-        elif field == "timeline":
-            lead.timeline = value
-            return "Good to know your timeline. "
-        else:
-            # Store any other information in notes
-            if lead.notes:
-                lead.notes += f"; {field}: {value}"
-            else:
-                lead.notes = f"{field}: {value}"
-            return "I've noted that information. "
-
-    @function_tool
-    async def check_lead_completeness(self, context: RunContext[SDRData]) -> str:
-        """Check what lead information is still needed and ensure all required fields are collected."""
-        lead = context.userdata.lead_data
-        missing_fields = lead.get_missing_fields()
-        
-        if not missing_fields:
-            return "Perfect! I have all the information I need. Is there anything else you'd like to know about Razorpay before we wrap up?"
-        
-        # Create urgency around collecting missing information
-        missing_count = len(missing_fields)
-        if missing_count > 1:
-            field_list = ", ".join(missing_fields[:-1]) + f" and {missing_fields[-1]}"
-            intro = f"To better assist you and ensure proper follow-up, I still need your {field_list}. "
-        else:
-            intro = f"I just need one more piece of information - your {missing_fields[0]}. "
-        
-        # Ask for the first missing field specifically
-        if "name" in missing_fields:
-            return intro + "What's your name?"
-        elif "company" in missing_fields:
-            return intro + "What company are you with?"
-        elif "email" in missing_fields:
-            return intro + "What's the best email address to reach you at?"
-        elif "role" in missing_fields:
-            return intro + "What's your role or position at your company?"
-        elif "use_case" in missing_fields:
-            return intro + "What specific business challenges brought you to Razorpay? What are you looking to solve?"
-        elif "team_size" in missing_fields:
-            return intro + "How large is your business or team? This helps me recommend the right solutions."
-        elif "timeline" in missing_fields:
-            return intro + "What's your timeline for implementing a payment or fintech solution?"
-        
-        return "I need to collect some basic information to help serve you better. What would you like to share first?"
-
-    @function_tool
-    async def create_call_summary(self, context: RunContext[SDRData]) -> str:
-        """Generate and save a call summary with lead information - only if ALL required info is collected."""
-        lead = context.userdata.lead_data
-        missing_fields = lead.get_missing_fields()
-        
-        # Don't allow summary creation if information is missing
-        if missing_fields:
-            missing_list = ", ".join(missing_fields)
-            return f"I'd love to wrap up our conversation, but I still need to collect your {missing_list} to ensure proper follow-up. This information is required for all our potential clients. Could you please provide these details?"
-        
-        company_info = context.userdata.company_info
-        
-        # Create comprehensive summary with all required information
-        summary_parts = [
-            f"Spoke with {lead.name}, {lead.role} at {lead.company}",
-            f"Email: {lead.email}",
-            f"Interested in: {lead.use_case}",
-            f"Team size: {lead.team_size}",
-            f"Timeline: {lead.timeline}"
-        ]
-        
-        summary = ". ".join(summary_parts) + "."
-        context.userdata.call_summary = summary
-        
-        # Save lead data to file
+    async def load_fraud_case(self, context: RunContext[FraudData], user_name: str) -> str:
+        """Load fraud case for the specified user from the database."""
         try:
-            leads_dir = CONFIG["leads_directory"]
-            leads_dir.mkdir(exist_ok=True)
+            conn = get_database_connection()
+            cursor = conn.cursor()
             
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"lead_nykaa_{timestamp}.json"
-            filepath = leads_dir / filename
+            # Query for the fraud case
+            cursor.execute("""
+                SELECT user_name, security_identifier, card_ending, case_status,
+                       transaction_name, transaction_time, transaction_amount,
+                       transaction_category, transaction_source, security_question,
+                       security_answer, location, last_updated, outcome_note
+                FROM fraud_cases 
+                WHERE LOWER(user_name) = LOWER(?)
+            """, (user_name,))
             
-            lead_data_dict = lead.to_dict()
-            lead_data_dict["call_summary"] = summary
+            case_data = cursor.fetchone()
+            conn.close()
             
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(lead_data_dict, f, indent=2)
+            if case_data:
+                # Create FraudCase object from database data
+                fraud_case = FraudCase(
+                    userName=case_data[0],
+                    securityIdentifier=case_data[1],
+                    cardEnding=case_data[2],
+                    case=case_data[3],
+                    transactionName=case_data[4],
+                    transactionTime=case_data[5],
+                    transactionAmount=case_data[6],
+                    transactionCategory=case_data[7],
+                    transactionSource=case_data[8],
+                    securityQuestion=case_data[9],
+                    securityAnswer=case_data[10],
+                    location=case_data[11],
+                    lastUpdated=case_data[12],
+                    outcomeNote=case_data[13]
+                )
                 
-            logger.info(f"Lead data saved to: {filepath}")
+                context.userdata.current_fraud_case = fraud_case
+                context.userdata.call_stage = "verification"
+                
+                logger.info(f"Loaded fraud case for {user_name}")
+                return f"Thank you {user_name}. I have your account information here. For security purposes, I need to verify your identity before we proceed."
+            else:
+                return f"I don't see any pending fraud alerts for {user_name}. Could you please double-check the name you provided?"
             
         except Exception as e:
-            logger.error(f"Error saving lead data: {e}")
-        
-        # Return verbal summary with all collected information
-        return f"Perfect! Let me summarize our conversation: {summary} Thank you for providing all the required information! I'll follow up with you soon with detailed information about how Razorpay can help your business grow. Have a great day!"
+            logger.error(f"Error loading fraud case: {e}")
+            return "I'm having trouble accessing our fraud database right now. Please call back in a few minutes."
 
     @function_tool
-    async def get_company_overview(self, context: RunContext[SDRData]) -> str:
-        """Provide an overview of Razorpay's services."""
-        company_info = context.userdata.company_info
-        company = company_info["company"]
-        products = company_info["products"]
+    async def ask_security_question(self, context: RunContext[FraudData]) -> str:
+        """Ask the customer's security question for verification."""
+        fraud_case = context.userdata.current_fraud_case
         
-        overview = f"{company['name']} - {company['tagline']}. "
-        overview += f"{company['description']} "
-        overview += f"We offer several key solutions: "
+        if not fraud_case:
+            return "I need to load your case information first. Could you please tell me your name?"
         
-        product_descriptions = []
-        for product_key, product_info in products.items():
-            product_descriptions.append(f"{product_info['name']} for {product_info['description']}")
+        if context.userdata.verification_status != "pending":
+            return "Verification is already in progress."
         
-        overview += ", ".join(product_descriptions)
-        overview += ". How can we help your business with payments and financial solutions?"
-        
-        return overview
+        # Ask the security question
+        context.userdata.verification_status = "awaiting_answer"
+        return f"For verification, please answer this security question: {fraud_case.securityQuestion}"
 
     @function_tool
-    async def validate_required_info(self, context: RunContext[SDRData]) -> str:
-        """Validate that all required information has been collected before ending conversation."""
-        lead = context.userdata.lead_data
-        missing_fields = lead.get_missing_fields()
+    async def verify_customer(self, context: RunContext[FraudData], customer_answer: str) -> str:
+        """Verify customer identity using security question.
         
-        if missing_fields:
-            missing_list = ", ".join(missing_fields)
-            return f"Before we end our conversation, I need to collect your {missing_list}. This information is essential for our sales team to follow up with the right solutions for your business. It will only take a moment - could you please provide these details?"
+        Args:
+            customer_answer: The customer's answer to the security question.
+        """
+        fraud_case = context.userdata.current_fraud_case
         
-        return "All required information has been collected. Thank you for providing all the details!"
+        if not fraud_case:
+            return "I need to load your case information first. Could you please tell me your name?"
+        
+        if context.userdata.verification_status == "verified":
+            return "You've already been verified. Let me proceed with the transaction details."
+        
+        if context.userdata.verification_status != "awaiting_answer":
+            return "I need to ask the security question first. Please tell me your name so I can load your case."
+        
+        # Verify the answer
+        if customer_answer.lower().strip() == fraud_case.securityAnswer.lower():
+            context.userdata.verification_status = "verified"
+            context.userdata.call_stage = "transaction_review"
+            return "Thank you for verifying your identity. Now, let me tell you about the suspicious transaction we detected on your account."
+        else:
+            context.userdata.verification_status = "failed"
+            return "I'm sorry, but that doesn't match our records. For your security, I cannot proceed with this call. Please visit your nearest branch with proper identification."
 
     @function_tool
-    async def validate_required_info(self, context: RunContext[SDRData]) -> str:
-        """Validate that all required information has been collected before ending conversation."""
-        lead = context.userdata.lead_data
-        missing_fields = lead.get_missing_fields()
+    async def read_transaction_details(self, context: RunContext[FraudData]) -> str:
+        """Read out the suspicious transaction details to the customer."""
+        fraud_case = context.userdata.current_fraud_case
         
-        if missing_fields:
-            missing_list = ", ".join(missing_fields)
-            return f"Before we end our conversation, I need to collect your {missing_list}. This information is essential for our sales team to follow up with the right solutions for your business. It will only take a moment - could you please provide these details?"
+        if not fraud_case:
+            return "I need to verify your identity first."
+            
+        if context.userdata.verification_status != "verified":
+            return "I need to complete identity verification before sharing transaction details."
         
-        return "All required information has been collected. Thank you for providing all the details!"
+        # Format transaction time for readability
+        try:
+            from datetime import datetime
+            transaction_time = datetime.fromisoformat(fraud_case.transactionTime.replace('Z', '+00:00'))
+            formatted_time = transaction_time.strftime("%A, %B %d at %I:%M %p")
+        except:
+            formatted_time = fraud_case.transactionTime
+        
+        transaction_details = f"""Here are the details of the suspicious transaction:
+        
+        Transaction: {fraud_case.transactionAmount} charged to your card ending in {fraud_case.cardEnding}
+        Merchant: {fraud_case.transactionName}
+        Category: {fraud_case.transactionCategory}
+        Location: {fraud_case.location}
+        Time: {formatted_time}
+        Source: {fraud_case.transactionSource}
+        
+        Did you make this purchase? Please answer yes if you made this transaction, or no if you did not."""
+        
+        context.userdata.call_stage = "case_update"
+        return transaction_details
 
     @function_tool
-    async def handle_early_exit_attempt(self, context: RunContext[SDRData]) -> str:
-        """Handle when users try to leave without providing all required information."""
-        lead = context.userdata.lead_data
-        missing_fields = lead.get_missing_fields()
+    async def update_fraud_case(self, context: RunContext[FraudData], customer_response: str) -> str:
+        """Update the fraud case status based on customer response."""
+        fraud_case = context.userdata.current_fraud_case
         
-        if missing_fields:
-            missing_count = len(missing_fields)
-            if missing_count == 1:
-                return f"I understand you might be in a hurry, but I just need your {missing_fields[0]} to ensure our team can properly follow up with you. It'll just take a second!"
-            else:
-                missing_list = ", ".join(missing_fields[:-1]) + f" and {missing_fields[-1]}"
-                return f"I completely understand your time is valuable! However, I need to collect your {missing_list} to ensure you get the best possible follow-up from our team. These details are required for all potential clients and help us provide personalized solutions. Could you quickly share these with me?"
+        if not fraud_case or context.userdata.verification_status != "verified":
+            return "I need to complete verification first."
         
-        return "Thank you for providing all the information! You're all set."
+        response_lower = customer_response.lower().strip()
+        
+        if "yes" in response_lower or "i made" in response_lower or "i did" in response_lower:
+            # Customer confirms transaction is legitimate
+            fraud_case.case = "confirmed_safe"
+            fraud_case.outcomeNote = "Customer confirmed transaction as legitimate"
+            fraud_case.lastUpdated = datetime.now().isoformat()
+            
+            outcome_message = f"""Perfect! I've marked this transaction as legitimate in our system. 
+            
+            Your card ending in {fraud_case.cardEnding} remains active and secure. Thank you for helping us keep your account safe. 
+
+            If you have any questions or see any other suspicious activity, please don't hesitate to call us immediately."""
+            
+        elif "no" in response_lower or "not me" in response_lower or "didn't" in response_lower:
+            # Customer denies making the transaction
+            fraud_case.case = "confirmed_fraud"
+            fraud_case.outcomeNote = "Customer denied making the transaction - fraudulent activity confirmed"
+            fraud_case.lastUpdated = datetime.now().isoformat()
+            
+            outcome_message = f"""I understand. I've immediately flagged this as fraudulent activity and taken the following actions:
+            
+            1. Your card ending in {fraud_case.cardEnding} has been temporarily blocked to prevent further unauthorized charges
+            2. This transaction will be reversed within 3-5 business days
+            3. We'll mail you a replacement card within 2-3 business days
+            4. A fraud dispute case has been opened
+
+            You should monitor your account closely and report any other suspicious activity immediately. Is there anything else I can help you with regarding this fraud case?"""
+            
+        else:
+            return "I need a clear yes or no answer. Did you make this transaction for $" + str(fraud_case.transactionAmount) + "?"
+        
+        # Save the updated case back to the database
+        try:
+            self._save_fraud_case_to_database(context, fraud_case)
+            logger.info(f"Updated fraud case for {fraud_case.userName} - Status: {fraud_case.case}")
+        except Exception as e:
+            logger.error(f"Error saving fraud case: {e}")
+        
+        context.userdata.call_stage = "closing"
+        return outcome_message
+
+    def _save_fraud_case_to_database(self, context: RunContext[FraudData], updated_case: FraudCase):
+        """Save the updated fraud case back to the database."""
+        try:
+            conn = get_database_connection()
+            cursor = conn.cursor()
+            
+            # Update the fraud case in the database
+            cursor.execute("""
+                UPDATE fraud_cases 
+                SET case_status = ?, 
+                    last_updated = ?,
+                    outcome_note = ?
+                WHERE LOWER(user_name) = LOWER(?)
+            """, (
+                updated_case.case,
+                updated_case.lastUpdated,
+                updated_case.outcomeNote,
+                updated_case.userName
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Successfully updated fraud case for {updated_case.userName} in database")
+                
+        except Exception as e:
+            logger.error(f"Error saving fraud case to database: {e}")
+            raise
+
+    @function_tool
+    async def end_fraud_call(self, context: RunContext[FraudData]) -> str:
+        """End the fraud alert call with appropriate closing message."""
+        fraud_case = context.userdata.current_fraud_case
+        
+        if fraud_case and fraud_case.case in ["confirmed_safe", "confirmed_fraud"]:
+            closing_message = f"""Thank you for your time today, {fraud_case.userName}. Your case has been updated and all necessary actions have been taken.
+            
+            Remember to:
+            - Keep your account information secure
+            - Never share your PIN or passwords
+            - Contact us immediately if you notice any suspicious activity
+            - Monitor your statements regularly
+
+            Have a great day and thank you for banking with SecureBank!"""
+        else:
+            closing_message = "Thank you for calling SecureBank's Fraud Prevention Department. Stay safe!"
+        
+        return closing_message
 
 
 def prewarm(proc: JobProcess):
@@ -364,37 +523,26 @@ def prewarm(proc: JobProcess):
 
 
 async def entrypoint(ctx: JobContext):
+    # Initialize the fraud database
+    init_fraud_database()
+    
+    # Log database contents for debugging
+    log_database_stats()
+    log_fraud_cases()
+    
     # Logging setup
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Initialize SDR data
-    userdata = SDRData()
+    # Initialize Fraud data
+    userdata = FraudData()
     
-    # Load company data
-    company_data_file = CONFIG["company_data_file"]
-    try:
-        if company_data_file.exists():
-            with open(company_data_file, 'r', encoding='utf-8') as f:
-                company_data = json.load(f)
-                userdata.company_info = company_data
-                userdata.faq_data = company_data.get("faq", [])
-                logger.info(f"Loaded company data for {company_data['company']['name']}")
-        else:
-            logger.error(f"Company data file not found: {company_data_file}")
-            userdata.company_info = {}
-            userdata.faq_data = []
-    except Exception as e:
-        logger.error(f"Error loading company data: {e}")
-        userdata.company_info = {}
-        userdata.faq_data = []
+    # Create Fraud Alert agent
+    fraud_agent = FraudAlertAgent()
     
-    # Create SDR agent
-    sdr_agent = SDRAgent()
-    
-    # Create the session with the SDR agent
-    session = AgentSession[SDRData](
+    # Create the session with the Fraud Alert agent
+    session = AgentSession[FraudData](
         userdata=userdata,
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
@@ -417,9 +565,9 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # Start the session with the SDR agent
+    # Start the session with the fraud agent
     await session.start(
-        agent=sdr_agent,
+        agent=fraud_agent,
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
