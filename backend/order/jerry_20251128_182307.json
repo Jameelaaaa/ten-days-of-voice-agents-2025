@@ -1,0 +1,35 @@
+{
+    "items": [
+        {
+            "id": "kitkat",
+            "name": "KitKat",
+            "quantity": 1,
+            "price": 25,
+            "unit": "bar"
+        },
+        {
+            "id": "cheese",
+            "name": "Cheese",
+            "quantity": 1,
+            "price": 120,
+            "unit": "block"
+        },
+        {
+            "id": "bell_pepper",
+            "name": "Bell Pepper",
+            "quantity": 1,
+            "price": 40,
+            "unit": "kg"
+        },
+        {
+            "id": "pizza",
+            "name": "Amul Veg Pizza",
+            "quantity": 1,
+            "price": 200,
+            "unit": "large"
+        }
+    ],
+    "total": 385,
+    "timestamp": "2025-11-28T18:23:07.662940",
+    "customer": "Jerry"
+}

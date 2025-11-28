@@ -1,0 +1,42 @@
+{
+    "items": [
+        {
+            "id": "orange_juice",
+            "name": "Orange Juice",
+            "quantity": 1,
+            "price": 70,
+            "unit": "bottle"
+        },
+        {
+            "id": "bread",
+            "name": "Bread",
+            "quantity": 1,
+            "price": 40,
+            "unit": "loaf"
+        },
+        {
+            "id": "cheese",
+            "name": "Cheese",
+            "quantity": 1,
+            "price": 120,
+            "unit": "block"
+        },
+        {
+            "id": "lettuce",
+            "name": "Lettuce",
+            "quantity": 1,
+            "price": 30,
+            "unit": "head"
+        },
+        {
+            "id": "tomato",
+            "name": "Tomato",
+            "quantity": 1,
+            "price": 20,
+            "unit": "kg"
+        }
+    ],
+    "total": 280,
+    "timestamp": "2025-11-28T18:13:13.971512",
+    "customer": "Jameela"
+}

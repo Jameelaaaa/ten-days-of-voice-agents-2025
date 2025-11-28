@@ -1,0 +1,77 @@
+{
+    "items": [
+        {
+            "id": "pizza_base",
+            "name": "Pizza Base",
+            "quantity": 1,
+            "price": 80,
+            "unit": "piece"
+        },
+        {
+            "id": "cheese",
+            "name": "Cheese",
+            "quantity": 1,
+            "price": 120,
+            "unit": "block"
+        },
+        {
+            "id": "tomato_sauce",
+            "name": "Tomato Sauce",
+            "quantity": 1,
+            "price": 60,
+            "unit": "bottle"
+        },
+        {
+            "id": "bell_pepper",
+            "name": "Bell Pepper",
+            "quantity": 1,
+            "price": 40,
+            "unit": "kg"
+        },
+        {
+            "id": "orange_juice",
+            "name": "Orange Juice",
+            "quantity": 1,
+            "price": 70,
+            "unit": "bottle"
+        },
+        {
+            "id": "pizza",
+            "name": "Amul Veg Pizza",
+            "quantity": 1,
+            "price": 200,
+            "unit": "large"
+        },
+        {
+            "id": "milk",
+            "name": "Milk",
+            "quantity": 1,
+            "price": 60,
+            "unit": "liter"
+        },
+        {
+            "id": "jam",
+            "name": "Jam",
+            "quantity": 1,
+            "price": 80,
+            "unit": "jar"
+        },
+        {
+            "id": "orange_juice",
+            "name": "Orange Juice",
+            "quantity": 1,
+            "price": 70,
+            "unit": "bottle"
+        },
+        {
+            "id": "chips",
+            "name": "Potato Chips",
+            "quantity": 1,
+            "price": 30,
+            "unit": "packet"
+        }
+    ],
+    "total": 810,
+    "timestamp": "2025-11-28T18:52:42.770149",
+    "customer": "Aurora"
+}

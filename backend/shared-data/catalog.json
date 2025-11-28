@@ -1,0 +1,157 @@
+{
+  "categories": [
+    {
+      "name": "Groceries",
+      "items": [
+        {
+          "id": "bread",
+          "name": "Bread",
+          "price": 40,
+          "unit": "loaf",
+          "tags": ["vegan"]
+        },
+        {
+          "id": "milk",
+          "name": "Milk",
+          "price": 60,
+          "unit": "liter",
+          "tags": ["dairy"]
+        },
+        {
+          "id": "jam",
+          "name": "Jam",
+          "price": 80,
+          "unit": "jar",
+          "tags": ["sweet"]
+        },
+        {
+          "id": "orange_juice",
+          "name": "Orange Juice",
+          "price": 70,
+          "unit": "bottle",
+          "tags": ["sweet"]
+        },
+        {
+          "id": "butter",
+          "name": "Butter",
+          "price": 50,
+          "unit": "packet",
+          "tags": ["dairy"]
+        },
+        {
+          "id": "pizza_base",
+          "name": "Pizza Base",
+          "price": 80,
+          "unit": "piece",
+          "tags": ["baking"]
+        },
+        {
+          "id": "tomato_sauce",
+          "name": "Tomato Sauce",
+          "price": 60,
+          "unit": "bottle",
+          "tags": ["condiment"]
+        }
+      ]
+    },
+    {
+      "name": "Snacks",
+      "items": [
+        {
+          "id": "kitkat",
+          "name": "KitKat",
+          "price": 25,
+          "unit": "bar",
+          "tags": ["chocolate"]
+        },
+        {
+          "id": "chips",
+          "name": "Potato Chips",
+          "price": 30,
+          "unit": "packet",
+          "tags": ["snack"]
+        }
+      ]
+    },
+    {
+      "name": "Prepared Food",
+      "items": [
+        {
+          "id": "pizza",
+          "name": "Amul Veg Pizza",
+          "price": 200,
+          "unit": "large",
+          "tags": ["veg", "prepared"]
+        },
+        {
+          "id": "sandwich",
+          "name": "Amul Veg Sandwich",
+          "price": 60,
+          "unit": "piece",
+          "tags": ["veg", "prepared"]
+        }
+      ]
+    },
+    {
+      "name": "Vegetables",
+      "items": [
+        {
+          "id": "tomato",
+          "name": "Tomato",
+          "price": 20,
+          "unit": "kg",
+          "tags": ["veg"]
+        },
+        {
+          "id": "lettuce",
+          "name": "Lettuce",
+          "price": 30,
+          "unit": "head",
+          "tags": ["veg"]
+        },
+        {
+          "id": "cheese",
+          "name": "Cheese",
+          "price": 120,
+          "unit": "block",
+          "tags": ["dairy", "veg"]
+        },
+        {
+          "id": "bell_pepper",
+          "name": "Bell Pepper",
+          "price": 40,
+          "unit": "kg",
+          "tags": ["veg"]
+        }
+      ]
+    },
+    {
+      "name": "Recipes",
+      "items": [
+        {
+          "id": "sandwich",
+          "name": "Veg Sandwich",
+          "ingredients": ["bread", "cheese", "lettuce", "tomato"],
+          "description": "Ingredients for a veg sandwich."
+        },
+        {
+          "id": "milkshake",
+          "name": "Milkshake",
+          "ingredients": ["milk", "jam", "orange_juice"],
+          "description": "Ingredients for a milkshake."
+        },
+        {
+          "id": "pizza",
+          "name": "Pizza",
+          "ingredients": [
+            "pizza_base",
+            "cheese",
+            "tomato_sauce",
+            "bell_pepper"
+          ],
+          "description": "Ingredients for a basic veg pizza."
+        }
+      ]
+    }
+  ]
+}

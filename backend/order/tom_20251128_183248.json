@@ -1,0 +1,49 @@
+{
+    "items": [
+        {
+            "id": "bread",
+            "name": "Bread",
+            "quantity": 1,
+            "price": 40,
+            "unit": "loaf"
+        },
+        {
+            "id": "cheese",
+            "name": "Cheese",
+            "quantity": 1,
+            "price": 120,
+            "unit": "block"
+        },
+        {
+            "id": "lettuce",
+            "name": "Lettuce",
+            "quantity": 1,
+            "price": 30,
+            "unit": "head"
+        },
+        {
+            "id": "tomato",
+            "name": "Tomato",
+            "quantity": 1,
+            "price": 20,
+            "unit": "kg"
+        },
+        {
+            "id": "pizza",
+            "name": "Amul Veg Pizza",
+            "quantity": 1,
+            "price": 200,
+            "unit": "large"
+        },
+        {
+            "id": "orange_juice",
+            "name": "Orange Juice",
+            "quantity": 1,
+            "price": 70,
+            "unit": "bottle"
+        }
+    ],
+    "total": 480,
+    "timestamp": "2025-11-28T18:32:48.060686",
+    "customer": "Tom"
+}
