@@ -1,0 +1,157 @@
+{
+  "store_name": "AuraMart E-Commerce",
+  "products": [
+    {
+      "id": "mug-001",
+      "name": "LatteLuxe Cup",
+      "description": "Premium ceramic cup with smooth matte finish",
+      "price": 299,
+      "currency": "INR",
+      "category": "drinkware",
+      "attributes": {
+        "material": "ceramic",
+        "color": "white",
+        "capacity": "300ml"
+      },
+      "stock": 25
+    },
+    {
+      "id": "mug-002",
+      "name": "Thermo Travel Mug",
+      "description": "Insulated stainless steel mug with leak-proof lid",
+      "price": 599,
+      "currency": "INR",
+      "category": "drinkware",
+      "attributes": {
+        "material": "stainless steel",
+        "color": "black",
+        "capacity": "500ml"
+      },
+      "stock": 15
+    },
+    {
+      "id": "shirt-001",
+      "name": "BreezeSoft T-shirt",
+      "description": "Soft and breathable cotton T-shirt for comfort",
+      "price": 799,
+      "currency": "INR",
+      "category": "clothing",
+      "attributes": {
+        "material": "cotton",
+        "color": "blue",
+        "size": "M"
+      },
+      "stock": 30
+    },
+    {
+      "id": "shirt-002",
+      "name": "Casual Collar Polo",
+      "description": "Smart polo shirt with soft blend collar",
+      "price": 1299,
+      "currency": "INR",
+      "category": "clothing",
+      "attributes": {
+        "material": "cotton blend",
+        "color": "white",
+        "size": "L"
+      },
+      "stock": 20
+    },
+    {
+      "id": "hoodie-001",
+      "name": "Midnight Hoodie",
+      "description": "Warm and stylish black hoodie with front pocket",
+      "price": 1899,
+      "currency": "INR",
+      "category": "clothing",
+      "attributes": {
+        "material": "cotton polyester",
+        "color": "black",
+        "size": "M"
+      },
+      "stock": 18
+    },
+    {
+      "id": "notebook-001",
+      "name": "DailyNotes Book",
+      "description": "A5 notebook with smooth 200 lined pages",
+      "price": 199,
+      "currency": "INR",
+      "category": "stationery",
+      "attributes": {
+        "size": "A5",
+        "pages": 200,
+        "binding": "spiral"
+      },
+      "stock": 50
+    },
+    {
+      "id": "pen-001",
+      "name": "QuickInk Blue Pen",
+      "description": "Fast-writing blue ballpoint pen",
+      "price": 25,
+      "currency": "INR",
+      "category": "stationery",
+      "attributes": {
+        "ink_color": "blue",
+        "type": "ballpoint"
+      },
+      "stock": 100
+    },
+    {
+      "id": "bag-001",
+      "name": "MultiComp Bag",
+      "description": "Spacious laptop backpack with multiple compartments",
+      "price": 2499,
+      "currency": "INR",
+      "category": "bags",
+      "attributes": {
+        "material": "nylon",
+        "color": "black",
+        "laptop_size": "15inch"
+      },
+      "stock": 8
+    },
+    {
+      "id": "case-001",
+      "name": "Phone Case",
+      "description": "Durable silicone phone case with shock protection",
+      "price": 399,
+      "currency": "INR",
+      "category": "accessories",
+      "attributes": {
+        "material": "silicone",
+        "color": "transparent"
+      },
+      "stock": 40
+    },
+    {
+      "id": "watch-001",
+      "name": "OnePlus Smartwatch",
+      "description": "Smartwatch with fitness tracking and AMOLED display",
+      "price": 2999,
+      "currency": "INR",
+      "category": "electronics",
+      "attributes": {
+        "color": "black",
+        "battery_life": "7 days"
+      },
+      "stock": 10
+    },
+
+    {
+      "id": "bottle-001",
+      "name": "SteelWater Bottle",
+      "description": "Durable 750ml stainless steel insulated water bottle",
+      "price": 499,
+      "currency": "INR",
+      "category": "drinkware",
+      "attributes": {
+        "material": "stainless steel",
+        "capacity": "750ml",
+        "color": "silver"
+      },
+      "stock": 20
+    }
+  ]
+}
